@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/insetcarbon-preview_github.html" }
+  ]
+}
