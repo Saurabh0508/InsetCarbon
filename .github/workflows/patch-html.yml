@@ -30,36 +30,27 @@ jobs:
           # 3. Add Vercel Analytics
           if '/_vercel/insights/script.js' not in content:
             content = content.replace('</head>', '<script defer src="/_vercel/insights/script.js"></script>\n</head>', 1)
-          # 4. Fix Formspree - ALWAYS replace any existing formspree URL + any fetch to formspree
-          FORMSPREE_ID = 'mojznnby'
-          FORMSPREE_URL = 'https://formspree.io/f/' + FORMSPREE_ID
-          # Replace any old formspree ID in fetch/form calls
+          # 4. Fix Formspree - replace ALL existing formspree URLs with correct ID
+          FORMSPREE_URL = 'https://formspree.io/f/mojznnby'
           content = re.sub(r'https://formspree\.io/f/[a-zA-Z0-9]+', FORMSPREE_URL, content)
-          # If no formspree URL found at all, inject a fetch-based submit handler
+          # If still no formspree URL, add a JS submit handler (using string concat to avoid YAML quoting issues)
           if FORMSPREE_URL not in content:
-            inject = '''
-<script>
-(function(){
-  var form = document.querySelector('form');
-  if(!form) return;
-  form.addEventListener('submit', function(e){
-    e.preventDefault();
-    var data = new FormData(form);
-    fetch('''' + FORMSPREE_URL + '''', {method:'POST', body:data, headers:{Accept:'application/json'}})
-      .then(function(r){ if(r.ok){ form.innerHTML='<p style="color:#f9f8f3;padding:2rem 0">Thank you! We will be in touch soon.</p>'; } })
-      .catch(function(){ alert('Error sending. Please email us directly.'); });
-  });
-})();
-</script>'''
-            content = content.replace('</body>', inject + '\n</body>', 1)
+            s1 = '<script>(function(){var f=document.querySelector("form");'
+            s2 = 'if(!f)return;f.addEventListener("submit",function(e){'
+            s3 = 'e.preventDefault();var d=new FormData(f);'
+            s4 = 'fetch("' + FORMSPREE_URL + '",{method:"POST",body:d,headers:{Accept:"application/json"}})'
+            s5 = '.then(function(r){if(r.ok){f.innerHTML="<p>Thank you! We will be in touch soon.</p>";}})'
+            s6 = '.catch(function(){alert("Error sending. Try again.");});});})();</script>'
+            inject = s1 + s2 + s3 + s4 + s5 + s6
+            content = content.replace('</body>', inject + '</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Formspree ID: ' + FORMSPREE_ID)
+          print('Done.')
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix Formspree to mojznnby + new favicon"
+          git diff --cached --quiet || git commit -m "Fix Formspree to mojznnby"
           git push
