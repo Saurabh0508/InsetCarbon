@@ -1,0 +1,36 @@
+name: Patch HTML
+
+on:
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix copyright year 2025 to 2026
+        run: sed -i 's/2025 InsetCarbon/2026 InsetCarbon/g; s/© 2025/© 2026/g; s/&copy; 2025/\&copy; 2026/g' insetcarbon-preview_github.html
+
+      - name: Add favicon to head
+        run: |
+          FAVICON='<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2715%27 fill=%27%231B3022%27/%3E%3Cpath d=%27M22 20 L58 20 Q72 20 78 33 L78 42 Q78 50 67 50 L56 50 Q49 50 49 43 L49 36 Q49 30 43 30 L31 30 Q23 30 19 38 L19 62 Q23 70 31 70 L43 70 Q49 70 49 64 L49 57 Q49 50 56 50 L67 50 Q78 50 78 58 L78 67 Q72 80 58 80 L22 80 Q7 80 7 65 L7 35 Q7 20 22 20 Z%27 fill=%27%23C8A96E%27/%3E%3Ccircle cx=%2784%27 cy=%2740%27 r=%278%27 fill=%27%23C8A96E%27/%3E%3Ccircle cx=%2790%27 cy=%2762%27 r=%275%27 fill=%27%23C8A96E%27/%3E%3C/svg%3E">'
+          sed -i "s|</title>|</title>\n    $FAVICON|" insetcarbon-preview_github.html
+
+      - name: Add Vercel Analytics script
+        run: sed -i 's|</head>|<script defer src="/_vercel/insights/script.js"></script>\n</head>|' insetcarbon-preview_github.html
+
+      - name: Update contact form to use Formspree
+        run: |
+          sed -i 's|<form [^>]*id="contact[^"]*"[^>]*>|<form action="https://formspree.io/f/xpwzgqdn" method="POST" id="contact-form">|g' insetcarbon-preview_github.html
+          sed -i 's|<form [^>]*class="[^"]*contact[^"]*"[^>]*>|<form action="https://formspree.io/f/xpwzgqdn" method="POST">|g' insetcarbon-preview_github.html
+
+      - name: Commit changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add insetcarbon-preview_github.html
+          git diff --cached --quiet || git commit -m "Patch: favicon, copyright 2026, analytics, formspree"
+          git push
