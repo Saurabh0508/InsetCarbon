@@ -14,13 +14,12 @@ jobs:
           import re
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
             content = f.read()
-          original = content
           # 1. Fix copyright year
           content = content.replace('2025 InsetCarbon', '2026 InsetCarbon')
           content = content.replace('\u00a9 2025', '\u00a9 2026')
           content = content.replace('&copy; 2025', '&copy; 2026')
           content = re.sub(r'(copyright[\s\S]{1,20}?)(2025)', r'\g<1>2026', content, flags=re.IGNORECASE)
-          # 2. FORCE-replace favicon with new hexagonal C + carbon dots design
+          # 2. FORCE-replace favicon with hexagonal C + carbon dots
           content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*/?>\s*', '', content)
           content = re.sub(r'<link[^>]*rel=["\']shortcut icon["\'][^>]*/?>\s*', '', content)
           favicon_svg = '<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><g fill="%231B3022"><path d="M 95 40 L 45 72 Q 35 78 35 90 L 35 166 Q 35 178 45 184 L 95 216 Q 107 224 120 216 L 145 200 Q 153 194 153 184 L 153 182 Q 153 170 141 170 Q 135 170 129 174 L 104 190 L 65 166 L 65 90 L 104 66 L 129 82 Q 135 86 141 86 Q 153 86 153 74 L 153 72 Q 153 62 145 56 L 120 40 Q 107 32 95 40 Z"/><circle cx="180" cy="92" r="16"/><circle cx="170" cy="128" r="22"/><circle cx="180" cy="164" r="16"/></g></svg>'
@@ -31,23 +30,36 @@ jobs:
           # 3. Add Vercel Analytics
           if '/_vercel/insights/script.js' not in content:
             content = content.replace('</head>', '<script defer src="/_vercel/insights/script.js"></script>\n</head>', 1)
-          # 4. Add Formspree to contact form
-          if 'formspree.io' not in content:
-            content = re.sub(
-              r'(<form[^>]*>)',
-              lambda m: '<form action="https://formspree.io/f/xpwzgqdn" method="POST">' if ('contact' in m.group(1).lower() or 'email' in m.group(1).lower()) else m.group(0),
-              content
-            )
-            if 'formspree.io' not in content:
-              content = re.sub(r'(<form)(\s)', r'<form action="https://formspree.io/f/xpwzgqdn" method="POST"\2', content, count=1)
+          # 4. Fix Formspree - ALWAYS replace any existing formspree URL + any fetch to formspree
+          FORMSPREE_ID = 'mojznnby'
+          FORMSPREE_URL = 'https://formspree.io/f/' + FORMSPREE_ID
+          # Replace any old formspree ID in fetch/form calls
+          content = re.sub(r'https://formspree\.io/f/[a-zA-Z0-9]+', FORMSPREE_URL, content)
+          # If no formspree URL found at all, inject a fetch-based submit handler
+          if FORMSPREE_URL not in content:
+            inject = '''
+<script>
+(function(){
+  var form = document.querySelector('form');
+  if(!form) return;
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var data = new FormData(form);
+    fetch('''' + FORMSPREE_URL + '''', {method:'POST', body:data, headers:{Accept:'application/json'}})
+      .then(function(r){ if(r.ok){ form.innerHTML='<p style="color:#f9f8f3;padding:2rem 0">Thank you! We will be in touch soon.</p>'; } })
+      .catch(function(){ alert('Error sending. Please email us directly.'); });
+  });
+})();
+</script>'''
+            content = content.replace('</body>', inject + '\n</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Changes applied.')
+          print('Done. Formspree ID: ' + FORMSPREE_ID)
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Update favicon to hexagonal C with carbon dots"
+          git diff --cached --quiet || git commit -m "Fix Formspree to mojznnby + new favicon"
           git push
