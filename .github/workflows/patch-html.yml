@@ -30,27 +30,32 @@ jobs:
           # 3. Add Vercel Analytics
           if '/_vercel/insights/script.js' not in content:
             content = content.replace('</head>', '<script defer src="/_vercel/insights/script.js"></script>\n</head>', 1)
-          # 4. Fix Formspree - replace ALL existing formspree URLs with correct ID
-          FORMSPREE_URL = 'https://formspree.io/f/mojznnby'
-          content = re.sub(r'https://formspree\.io/f/[a-zA-Z0-9]+', FORMSPREE_URL, content)
-          # If still no formspree URL, add a JS submit handler (using string concat to avoid YAML quoting issues)
-          if FORMSPREE_URL not in content:
-            s1 = '<script>(function(){var f=document.querySelector("form");'
-            s2 = 'if(!f)return;f.addEventListener("submit",function(e){'
-            s3 = 'e.preventDefault();var d=new FormData(f);'
-            s4 = 'fetch("' + FORMSPREE_URL + '",{method:"POST",body:d,headers:{Accept:"application/json"}})'
-            s5 = '.then(function(r){if(r.ok){f.innerHTML="<p>Thank you! We will be in touch soon.</p>";}})'
-            s6 = '.catch(function(){alert("Error sending. Try again.");});});})();</script>'
-            inject = s1 + s2 + s3 + s4 + s5 + s6
-            content = content.replace('</body>', inject + '</body>', 1)
+          # 4. Formspree Vanilla JS (Ajax) CDN integration - correct method for static HTML
+          # Remove ALL previous formspree patches to start clean
+          content = re.sub(r'https://formspree\.io/f/[a-zA-Z0-9]+', 'https://formspree.io/f/mojznnby', content)
+          content = re.sub(r'<script[^>]*unpkg\.com/@formspree[^>]*>[\s\S]*?</script>\s*', '', content)
+          content = re.sub(r'<script>\s*window\.formspree[\s\S]*?</script>\s*', '', content)
+          content = re.sub(r'<script>\s*\(function\(\)\{var f=document[\s\S]*?</script>\s*', '', content)
+          # Find the form element and add required data-fs attributes + wrap in proper form
+          # Add name attributes to existing inputs if missing
+          content = re.sub(r'(id="input-name")', r'\1 name="name" data-fs-field', content)
+          content = re.sub(r'(id="input-company")', r'\1 name="company" data-fs-field', content)
+          content = re.sub(r'(id="input-role")', r'\1 name="role" data-fs-field', content)
+          content = re.sub(r'(id="input-email")', r'\1 name="email" data-fs-field', content)
+          # Add data-fs-submit-btn to submit button
+          content = re.sub(r'(id="submit-btn"|type="submit")', r'\1 data-fs-submit-btn', content, count=1)
+          # Inject the Formspree Ajax CDN script + init before </body>
+          if 'formspree/ajax' not in content:
+            fs_script = '<script>window.formspree=window.formspree||function(){(formspree.q=formspree.q||[]).push(arguments);};formspree("initForm",{formElement:"form",formId:"mojznnby"});</script><script src="https://unpkg.com/@formspree/ajax@1" defer></script>'
+            content = content.replace('</body>', fs_script + '\n</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done.')
+          print('Done. Formspree Ajax CDN injected.')
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix Formspree to mojznnby"
+          git diff --cached --quiet || git commit -m "Formspree: correct Vanilla JS Ajax CDN integration"
           git push
