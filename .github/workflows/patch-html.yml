@@ -11,38 +11,57 @@ jobs:
       - name: Apply all patches via Python
         run: |
           python3 - << 'PYEOF'
-          import re
+          import re, urllib.parse
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
             content = f.read()
+
           # 1. Fix copyright year
           content = content.replace('2025 InsetCarbon', '2026 InsetCarbon')
           content = content.replace('\u00a9 2025', '\u00a9 2026')
           content = content.replace('&copy; 2025', '&copy; 2026')
           content = re.sub(r'(copyright[\s\S]{1,20}?)(2025)', r'\g<1>2026', content, flags=re.IGNORECASE)
-          # 2. FORCE-replace favicon with hexagonal C + carbon dots
-          favicon_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="%231B3022" stroke="%238C6A56" stroke-width="1.5"/><text x="16" y="22" font-family="Arial Black,sans-serif" font-size="16" font-weight="900" fill="%23F9F8F3" text-anchor="middle">C</text><circle cx="8" cy="16" r="1.5" fill="%238C6A56"/><circle cx="24" cy="16" r="1.5" fill="%238C6A56"/></svg>'
-          import urllib.parse
-          encoded = urllib.parse.quote(favicon_svg, safe='%')
+
+          # 2. FORCE-replace favicon with correct hexagonal C + carbon dots SVG
+          favicon_svg = ('<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">'
+            '<g fill="#000000">'
+            '<path d="M 95 40 L 45 72 Q 35 78 35 90 L 35 166 Q 35 178 45 184 L 95 216'
+            ' Q 107 224 120 216 L 145 200 Q 153 194 153 184 L 153 182 Q 153 170 141 170'
+            ' Q 135 170 129 174 L 104 190 L 65 166 L 65 90 L 104 66 L 129 82'
+            ' Q 135 86 141 86 Q 153 86 153 74 L 153 72 Q 153 62 145 56 L 120 40'
+            ' Q 107 32 95 40 Z"/>'
+            '<circle cx="180" cy="92" r="16"/>'
+            '<circle cx="170" cy="128" r="22"/>'
+            '<circle cx="180" cy="164" r="16"/>'
+            '</g></svg>')
+          encoded = urllib.parse.quote(favicon_svg, safe='')
+          # Remove all existing favicon/icon link tags
           content = re.sub(r'<link[^>]*rel=["\'](?:shortcut )?icon["\'][^>]*>', '', content)
-          content = re.sub(r'<link[^>]*href=["\'][^"\']*(favicon|icon)[^"\']*.png["\'][^>]*>', '', content)
-          content = content.replace('</head>', f'<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,{encoded}">\n</head>', 1)
+          content = re.sub(r'<link[^>]*href=["\'][^"\']*(?:favicon|icon)[^"\']*\.png["\'][^>]*>', '', content)
+          content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*/>', '', content)
+          # Inject new favicon as first item in <head>
+          content = content.replace('<head>', '<head>\n<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encoded + '">\n', 1)
+
           # 3. Remove old Formspree CDN scripts
           content = re.sub(r'<script[^>]*unpkg\.com/@formspree[^>]*>[\s\S]*?</script>\s*', '', content)
-          content = re.sub(r'<script[^>]*unpkg\.com/(@formspree|@gformspree)[^>]*></script>\s*', '', content)
-          content = re.sub(r'<script>\s*window\.formspree[\s\S]*?</script>\s*', '', content)
-          content = re.sub(r'<script>\s*\(function\(\)\){var f=document[\s\S]*?</script>\s*', '', content)
+          content = re.sub(r'<script[^>]*unpkg\.com/(@formspree|@gformspree)[^>]*>\s*', '', content)
+          content = re.sub(r'\s*window\.formspree[\s\S]*?</script>\s*', '', content)
+          content = re.sub(r'\s*\(function\(\)\){var f=document[\s\S]*?</script>\s*', '', content)
+
           # 4. Add name attributes to existing inputs if missing
           content = re.sub(r'(id="input-name")', r'\1 name="name"', content)
           content = re.sub(r'(id="input-company")', r'\1 name="company"', content)
           content = re.sub(r'(id="input-role")', r'\1 name="role"', content)
           content = re.sub(r'(id="input-email")', r'\1 name="email"', content)
-          # 5. Remove any previously injected Formspree scripts to avoid duplicates
-          content = re.sub(r'<script>\s*\(function\(\)\{[\s\S]*?\}\)\(\);\s*</script>', '', content, flags=re.DOTALL)
-          # 6. Inject the CORRECT Formspree submit handler before </body>
+
+          # 5. Remove any previously injected form scripts to avoid duplicates
+          content = re.sub(r'\s*\(function\(\)\{[\s\S]*?\}\)\(\);\s*</script>', '</script>', content, flags=re.DOTALL)
+
+          # 6. Inject Web3Forms submit handler before </body>
+          W3F_ACCESS_KEY = 'YOUR_WEB3FORMS_ACCESS_KEY'
           lines = [
             '<script>',
             '(function(){',
-            '  function attachFormspree(){',
+            '  function attachForm(){',
             '    var form = document.querySelector("#contact-section form") || document.querySelector("form");',
             '    if (!form) return;',
             '    var newForm = form.cloneNode(true);',
@@ -57,20 +76,19 @@ jobs:
             '      var email = (newForm.querySelector("#input-email") || {}).value || "";',
             '      if (!email || !nameVal) { alert("Please fill in your name and email."); return; }',
             '      if (btn) { btn.disabled = true; btn.textContent = "SENDING..."; }',
-            '      fetch("https://formspree.io/f/mojznnby", {',
+            '      fetch("https://api.web3forms.com/submit", {',
             '        method: "POST",',
             '        headers: { "Content-Type": "application/json", "Accept": "application/json" },',
-            '        body: JSON.stringify({ name: nameVal, company: company, role: role, email: email })',
+            '        body: JSON.stringify({',
+            '          access_key: "' + W3F_ACCESS_KEY + '",',
+            '          subject: "New InsetCarbon Enquiry from " + nameVal,',
+            '          name: nameVal, company: company, role: role, email: email',
+            '        })',
             '      })',
-            '      .then(function(r){',
-            '        if (!r.ok) throw new Error("HTTP " + r.status);',
-            '        return r.json();',
-            '      })',
+            '      .then(function(r){ return r.json(); })',
             '      .then(function(data){',
-            '        if (data.ok === true) {',
+            '        if (data.success) {',
             '          newForm.innerHTML = "<div style=\'border-left:3px solid #8C6A56;padding-left:1rem\'><p style=\'font-weight:700;color:#1B3022\'>Message sent.</p><p style=\'color:#1B3022;opacity:0.7\'>Thank you, " + nameVal + ". We will reach out to schedule a scoping session for " + (company || "you") + " shortly.</p></div>";',
-            '        } else if (data.next) {',
-            '          window.location.href = data.next;',
             '        } else {',
             '          if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
             '          alert("Something went wrong. Please try again.");',
@@ -83,21 +101,23 @@ jobs:
             '    }, true);',
             '  }',
             '  if (document.readyState === "loading") {',
-            '    document.addEventListener("DOMContentLoaded", attachFormspree);',
-            '  } else { attachFormspree(); }',
+            '    document.addEventListener("DOMContentLoaded", attachForm);',
+            '  } else { attachForm(); }',
             '})();',
-            '</script>'
+            '</script>',
           ]
           fs_script = '\n'.join(lines)
           content = content.replace('</body>', fs_script + '\n</body>', 1)
+
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Formspree strict data.ok===true check handler injected.')
+          print('Done. Correct favicon + Web3Forms handler injected.')
           PYEOF
+
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix: Strict data.ok===true check; redirect on data.next for Formspree captcha"
+          git diff --cached --quiet || git commit -m "Fix: correct favicon SVG + switch to Web3Forms"
           git push
