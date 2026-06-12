@@ -62,18 +62,23 @@ jobs:
             '        headers: { "Content-Type": "application/json", "Accept": "application/json" },',
             '        body: JSON.stringify({ name: nameVal, company: company, role: role, email: email })',
             '      })',
-            '      .then(function(r){ return r.json(); })',
+            '      .then(function(r){',
+            '        if (!r.ok) throw new Error("HTTP " + r.status);',
+            '        return r.json();',
+            '      })',
             '      .then(function(data){',
-            '        if (data.ok || data.next) {',
+            '        if (data.ok === true) {',
             '          newForm.innerHTML = "<div style=\'border-left:3px solid #8C6A56;padding-left:1rem\'><p style=\'font-weight:700;color:#1B3022\'>Message sent.</p><p style=\'color:#1B3022;opacity:0.7\'>Thank you, " + nameVal + ". We will reach out to schedule a scoping session for " + (company || "you") + " shortly.</p></div>";',
+            '        } else if (data.next) {',
+            '          window.location.href = data.next;',
             '        } else {',
             '          if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
             '          alert("Something went wrong. Please try again.");',
             '        }',
             '      })',
-            '      .catch(function(){',
+            '      .catch(function(err){',
             '        if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
-            '        alert("Network error. Please try again.");',
+            '        alert("Error: " + err.message + ". Please try again.");',
             '      });',
             '    }, true);',
             '  }',
@@ -87,12 +92,12 @@ jobs:
           content = content.replace('</body>', fs_script + '\n</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Formspree form-clone submit handler injected.')
+          print('Done. Formspree strict data.ok===true check handler injected.')
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix: Formspree form-clone submit override - no triple quotes"
+          git diff --cached --quiet || git commit -m "Fix: Strict data.ok===true check; redirect on data.next for Formspree captcha"
           git push
