@@ -22,7 +22,7 @@ jobs:
           # 2. FORCE-replace favicon with hexagonal C + carbon dots
           content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*/?>\s*', '', content)
           content = re.sub(r'<link[^>]*rel=["\']shortcut icon["\'][^>]*/?>\s*', '', content)
-          favicon_svg = '<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><g fill="%231B3022"><path d="M 95 40 L 45 72 Q 35 78 35 90 L 35 166 Q 35 178 45 184 L 95 216 Q 107 224 120 216 L 145 200 Q 153 194 153 184 L 153 182 Q 153 170 141 170 Q 135 170 129 174 L 104 190 L 65 166 L 65 90 L 104 66 L 129 82 Q 135 86 141 86 Q 153 86 153 74 L 153 72 Q 153 62 145 56 L 120 40 Q 107 32 95 40 Z"/><circle cx="180" cy="92" r="16"/><circle cx="170" cy="128" r="22"/><circle cx="180" cy="164" r="16"/></g></svg>'
+          favicon_svg = '<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><g fill="%231B3022"><path d="M 95 40 L 45 72 Q 35 78 35 90 L 35 166 Q 35 178 45 184 L 95 216 Q 107 224 120 216 L 145 200 Q 153 194 153 184 L 153 182 Q 153 178 141 178 Q 129 174 L 104 190 L 65 166 L 65 90 L 104 66 L 129 82 Q 135 86 141 86 Q 153 86 153 74 L 153 72 Q 153 62 145 56 L 120 40 Q 107 32 95 40 Z"/><circle cx="180" cy="92" r="16"/><circle cx="170" cy="128" r="22"/><circle cx="180" cy="164" r="16"/></g></svg>'
           import urllib.parse
           encoded = urllib.parse.quote(favicon_svg, safe='%')
           favicon_tag = '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encoded + '">'
@@ -30,32 +30,75 @@ jobs:
           # 3. Add Vercel Analytics
           if '/_vercel/insights/script.js' not in content:
             content = content.replace('</head>', '<script defer src="/_vercel/insights/script.js"></script>\n</head>', 1)
-          # 4. Formspree Vanilla JS (Ajax) CDN integration - correct method for static HTML
+          # 4. Formspree - correct fetch() approach for static HTML
           # Remove ALL previous formspree patches to start clean
           content = re.sub(r'https://formspree\.io/f/[a-zA-Z0-9]+', 'https://formspree.io/f/mojznnby', content)
           content = re.sub(r'<script[^>]*unpkg\.com/@formspree[^>]*>[\s\S]*?</script>\s*', '', content)
+          content = re.sub(r'<script[^>]*unpkg\.com/(@formspree|@gformspree)[^>]*></script>\s*', '', content)
           content = re.sub(r'<script>\s*window\.formspree[\s\S]*?</script>\s*', '', content)
           content = re.sub(r'<script>\s*\(function\(\)\{var f=document[\s\S]*?</script>\s*', '', content)
-          # Find the form element and add required data-fs attributes + wrap in proper form
           # Add name attributes to existing inputs if missing
-          content = re.sub(r'(id="input-name")', r'\1 name="name" data-fs-field', content)
-          content = re.sub(r'(id="input-company")', r'\1 name="company" data-fs-field', content)
-          content = re.sub(r'(id="input-role")', r'\1 name="role" data-fs-field', content)
-          content = re.sub(r'(id="input-email")', r'\1 name="email" data-fs-field', content)
-          # Add data-fs-submit-btn to submit button
-          content = re.sub(r'(id="submit-btn"|type="submit")', r'\1 data-fs-submit-btn', content, count=1)
-          # Inject the Formspree Ajax CDN script + init before </body>
-          if 'formspree/ajax' not in content:
-            fs_script = '<script>window.formspree=window.formspree||function(){(formspree.q=formspree.q||[]).push(arguments);};formspree("initForm",{formElement:"form",formId:"mojznnby"});</script><script src="https://unpkg.com/@formspree/ajax@1" defer></script>'
+          content = re.sub(r'(id="input-name")', r'\1 name="name"', content)
+          content = re.sub(r'(id="input-company")', r'\1 name="company"', content)
+          content = re.sub(r'(id="input-role")', r'\1 name="role"', content)
+          content = re.sub(r'(id="input-email")', r'\1 name="email"', content)
+          # Inject the Formspree fetch() submit handler before </body>
+          fs_script = '''
+          <script>
+          (function(){
+            var btn = document.getElementById('submit-btn') || document.querySelector('[type="submit"]');
+            if (!btn) return;
+            btn.addEventListener('click', function(e){
+              e.preventDefault();
+              var name = document.getElementById('input-name') ? document.getElementById('input-name').value : '';
+              var company = document.getElementById('input-company') ? document.getElementById('input-company').value : '';
+              var role = document.getElementById('input-role') ? document.getElementById('input-role').value : '';
+              var email = document.getElementById('input-email') ? document.getElementById('input-email').value : '';
+              if (!email || !name) {
+                alert('Please fill in your name and email.');
+                return;
+              }
+              btn.disabled = true;
+              btn.textContent = 'SENDING...';
+              fetch('https://formspree.io/f/mojznnby', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ name: name, company: company, role: role, email: email })
+              })
+              .then(function(r){ return r.json(); })
+              .then(function(data){
+                if (data.ok || data.next) {
+                  btn.textContent = 'SENT ✓';
+                  document.getElementById('input-name') && (document.getElementById('input-name').value = '');
+                  document.getElementById('input-company') && (document.getElementById('input-company').value = '');
+                  document.getElementById('input-role') && (document.getElementById('input-role').value = '');
+                  document.getElementById('input-email') && (document.getElementById('input-email').value = '');
+                } else {
+                  btn.disabled = false;
+                  btn.textContent = 'SEND IT →';
+                  alert('Something went wrong. Please try again.');
+                }
+              })
+              .catch(function(){
+                btn.disabled = false;
+                btn.textContent = 'SEND IT →';
+                alert('Network error. Please try again.');
+              });
+            });
+          })();
+          </script>'''
+          if 'formspree.io/f/mojznnby' not in content or 'fetch(' not in content:
+            content = content.replace('</body>', fs_script + '\n</body>', 1)
+          elif 'fetch(' not in content:
             content = content.replace('</body>', fs_script + '\n</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Formspree Ajax CDN injected.')
+          print('Done. Formspree fetch() handler injected.')
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Formspree: correct Vanilla JS Ajax CDN integration"
+          git diff --cached --quiet || git commit -m "Fix: Formspree fetch() submit handler - correct implementation"
           git push
