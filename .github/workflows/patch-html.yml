@@ -37,66 +37,62 @@ jobs:
           content = re.sub(r'(id="input-role")', r'\1 name="role"', content)
           content = re.sub(r'(id="input-email")', r'\1 name="email"', content)
           # 5. Remove any previously injected Formspree scripts to avoid duplicates
-          content = re.sub(r'<script>\s*\(function\(\)\{\s*var (form|btn) =.*?\}\)\(\);\s*</script>', '', content, flags=re.DOTALL)
+          content = re.sub(r'<script>\s*\(function\(\)\{[\s\S]*?\}\)\(\);\s*</script>', '', content, flags=re.DOTALL)
           # 6. Inject the CORRECT Formspree submit handler before </body>
-          fs_script = '''
-<script>
-(function(){
-  function attachFormspree(){
-    var form = document.querySelector('#contact-section form') || document.querySelector('form');
-    if (!form) return;
-    // Clone form to strip all existing event listeners
-    var newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-    newForm.addEventListener('submit', function(e){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      var btn = newForm.querySelector('[type="submit"]');
-      var name = (newForm.querySelector('#input-name') || {}).value || '';
-      var company = (newForm.querySelector('#input-company') || {}).value || '';
-      var role = (newForm.querySelector('#input-role') || {}).value || '';
-      var email = (newForm.querySelector('#input-email') || {}).value || '';
-      if (!email || !name) {
-        alert('Please fill in your name and email.');
-        return;
-      }
-      if (btn) { btn.disabled = true; btn.textContent = 'SENDING...'; }
-      fetch('https://formspree.io/f/mojznnby', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ name: name, company: company, role: role, email: email })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.ok || data.next) {
-          newForm.innerHTML = '<div style="border-left:3px solid #8C6A56;padding-left:1rem"><p style="font-size:1.1rem;font-weight:700;color:#1B3022;margin-bottom:0.5rem">Message sent.</p><p style="color:#1B3022;opacity:0.7">Thank you, ' + name + '. We will reach out to schedule a scoping session for ' + (company || 'you') + ' shortly.</p><p style="margin-top:1rem;font-size:1.2rem">&#8594;</p></div>';
-        } else {
-          if (btn) { btn.disabled = false; btn.textContent = 'SEND IT \u2192'; }
-          alert('Something went wrong. Please try again.');
-        }
-      })
-      .catch(function(){
-        if (btn) { btn.disabled = false; btn.textContent = 'SEND IT \u2192'; }
-        alert('Network error. Please try again.');
-      });
-    }, true);
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachFormspree);
-  } else {
-    attachFormspree();
-  }
-})();
-</script>'''
+          lines = [
+            '<script>',
+            '(function(){',
+            '  function attachFormspree(){',
+            '    var form = document.querySelector("#contact-section form") || document.querySelector("form");',
+            '    if (!form) return;',
+            '    var newForm = form.cloneNode(true);',
+            '    form.parentNode.replaceChild(newForm, form);',
+            '    newForm.addEventListener("submit", function(e){',
+            '      e.preventDefault();',
+            '      e.stopImmediatePropagation();',
+            '      var btn = newForm.querySelector("[type=submit]");',
+            '      var nameVal = (newForm.querySelector("#input-name") || {}).value || "";',
+            '      var company = (newForm.querySelector("#input-company") || {}).value || "";',
+            '      var role = (newForm.querySelector("#input-role") || {}).value || "";',
+            '      var email = (newForm.querySelector("#input-email") || {}).value || "";',
+            '      if (!email || !nameVal) { alert("Please fill in your name and email."); return; }',
+            '      if (btn) { btn.disabled = true; btn.textContent = "SENDING..."; }',
+            '      fetch("https://formspree.io/f/mojznnby", {',
+            '        method: "POST",',
+            '        headers: { "Content-Type": "application/json", "Accept": "application/json" },',
+            '        body: JSON.stringify({ name: nameVal, company: company, role: role, email: email })',
+            '      })',
+            '      .then(function(r){ return r.json(); })',
+            '      .then(function(data){',
+            '        if (data.ok || data.next) {',
+            '          newForm.innerHTML = "<div style=\'border-left:3px solid #8C6A56;padding-left:1rem\'><p style=\'font-weight:700;color:#1B3022\'>Message sent.</p><p style=\'color:#1B3022;opacity:0.7\'>Thank you, " + nameVal + ". We will reach out to schedule a scoping session for " + (company || "you") + " shortly.</p></div>";',
+            '        } else {',
+            '          if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
+            '          alert("Something went wrong. Please try again.");',
+            '        }',
+            '      })',
+            '      .catch(function(){',
+            '        if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
+            '        alert("Network error. Please try again.");',
+            '      });',
+            '    }, true);',
+            '  }',
+            '  if (document.readyState === "loading") {',
+            '    document.addEventListener("DOMContentLoaded", attachFormspree);',
+            '  } else { attachFormspree(); }',
+            '})();',
+            '</script>'
+          ]
+          fs_script = '\n'.join(lines)
           content = content.replace('</body>', fs_script + '\n</body>', 1)
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Formspree submit handler injected with form clone.')
+          print('Done. Formspree form-clone submit handler injected.')
           PYEOF
       - name: Commit changes
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix: Formspree form-level submit handler with clone to override existing handlers"
+          git diff --cached --quiet || git commit -m "Fix: Formspree form-clone submit override - no triple quotes"
           git push
