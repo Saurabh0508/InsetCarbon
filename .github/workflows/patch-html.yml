@@ -13,77 +13,69 @@ jobs:
           cat > /tmp/w3f_snippet.html << 'HTMLEOF'
           <script id="web3forms-interceptor">
           (function(){
-            var KEY="72c76e43-c41e-44bc-9a7f-25e3fd7256d2";
-            function init(){
-              var t=setInterval(function(){
-                var btn=null;
-                document.querySelectorAll("button").forEach(function(b){
-                  if(b.textContent.indexOf("SEND")>-1)btn=b;
-                });
-                if(btn&&!btn._w3f){
-                  btn._w3f=true;clearInterval(t);
-                  btn.addEventListener("click",function(e){
-                    e.preventDefault();e.stopPropagation();
-                    var n=document.getElementById("input-name")||document.querySelector('[placeholder="your name"]');
-                    var c=document.getElementById("input-company")||document.querySelector('[placeholder="company"]');
-                    var r=document.getElementById("input-role")||document.querySelector('[placeholder="your role"]');
-                    var em=document.getElementById("input-email")||document.querySelector('[placeholder="email address"]')||document.querySelector('[type="email"]');
-                    var nv=n?n.value:"",cv=c?c.value:"",rv=r?r.value:"",ev=em?em.value:"";
-                    if(!nv||!ev){alert("Please fill in your name and email.");return;}
-                    btn.disabled=true;btn.textContent="SENDING...";
-                    fetch("https://api.web3forms.com/submit",{
-                      method:"POST",
-                      headers:{"Content-Type":"application/json","Accept":"application/json"},
-                      body:JSON.stringify({access_key:KEY,subject:"New InsetCarbon Contact",name:nv,email:ev,message:"Name:"+nv+" Company:"+cv+" Role:"+rv+" Email:"+ev})
-                    }).then(function(x){return x.json();}).then(function(d){
-                      if(d.success){
-                        var wrapper=btn.closest(".conversational-form-wrapper")||btn.closest("form")||btn.parentElement;
-                        if(wrapper){
-                          wrapper.innerHTML='<div style="padding:2rem 0;text-align:center;"><p style="font-size:1.2rem;font-weight:700;color:inherit;margin-bottom:0.5rem;">Thank you for your submission!</p><p style="opacity:0.7;">Our team will get back to you shortly.</p></div>';
-                        } else {
-                          btn.textContent="SENT! Thank you.";
-                        }
-                      } else {
-                        btn.textContent="ERROR - Try again";
-                        btn.disabled=false;
-                      }
-                    }).catch(function(){btn.textContent="ERROR - Try again";btn.disabled=false;});
-                  },true);
-                }
-              },500);
-              setTimeout(function(){clearInterval(t);},15000);
-            }
-            if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
+          var KEY="72c76e43-c41e-44bc-9a7f-25e3fd7256d2";
+          function init(){
+          var t=setInterval(function(){
+          var btn=null;
+          document.querySelectorAll("button").forEach(function(b){
+          if(b.textContent.indexOf("SEND")>-1)btn=b;
+          });
+          if(btn&&!btn._w3f){
+          btn._w3f=true;clearInterval(t);
+          btn.addEventListener("click",function(e){
+          e.preventDefault();e.stopPropagation();
+          var n=document.getElementById("input-name")||document.querySelector('[placeholder="your name"]');
+          var c=document.getElementById("input-company")||document.querySelector('[placeholder="company"]');
+          var r=document.getElementById("input-role")||document.querySelector('[placeholder="your role"]');
+          var em=document.getElementById("input-email")||document.querySelector('[placeholder="email address"]')||document.querySelector('[type="email"]');
+          var nv=n?n.value:"",cv=c?c.value:"",rv=r?r.value:"",ev=em?em.value:"";
+          if(!nv||!ev){alert("Please fill in your name and email.");return;}
+          btn.disabled=true;btn.textContent="SENDING...";
+          fetch("https://api.web3forms.com/submit",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Accept":"application/json"},
+          body:JSON.stringify({access_key:KEY,name:nv,company:cv,role:rv,email:ev,subject:"New InsetCarbon Contact: "+nv,from_name:"InsetCarbon Contact Form"})
+          }).then(function(res){return res.json();})
+          .then(function(d){
+          if(d.success){
+          var wrapper=document.getElementById("conversational-form-wrapper");
+          if(wrapper){
+          wrapper.innerHTML='<div style="padding:2rem 0;text-align:center;"><p style="font-size:1.2rem;font-weight:700;color:inherit;margin-bottom:0.5rem;">Thank you for your submission!</p><p style="opacity:0.7;">Our team will get back to you shortly.</p></div>';
+          } else {
+          btn.textContent="SENT! Thank you.";
+          }
+          } else {
+          btn.textContent="ERROR - Try again";
+          btn.disabled=false;
+          }
+          }).catch(function(){
+          btn.textContent="ERROR - Try again";
+          btn.disabled=false;
+          });
+          });
+          }
+          },300);
+          }
+          if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
           })();
           </script>
           HTMLEOF
-          echo "Snippet written"
-      - name: Replace old interceptor in HTML
-        run: |
-          python3 << 'PYEOF'
+          python3 - << 'PYEOF'
           import re
-          with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
-              html = f.read()
-          print('File size:', len(html))
-          with open('/tmp/w3f_snippet.html', 'r') as f:
-              new_snippet = f.read().strip()
-          # Remove old interceptor script if present
-          html = re.sub(r'<script id="web3forms-interceptor">.*?</script>', '', html, flags=re.DOTALL)
-          # Inject new snippet before </body>
-          if '</body>' in html:
-              html = html.replace('</body>', new_snippet + '</body>', 1)
-              print('Injected updated interceptor before </body>')
-          else:
-              html = html + new_snippet
-              print('Appended to end')
-          with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
+          with open("index.html","r") as f:
+              html=f.read()
+          with open("/tmp/w3f_snippet.html","r") as f:
+              snippet=f.read().strip()
+          html=re.sub(r'<script id="web3forms-interceptor">[\s\S]*?</script>','',html)
+          html=html.replace("</body>",snippet+"\n</body>")
+          with open("index.html","w") as f:
               f.write(html)
-          print('Done. New size:', len(html))
+          print("Done")
           PYEOF
-      - name: Commit changes
+      - name: Commit patched index.html
         run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-          git add insetcarbon-preview_github.html
-          git diff --staged --quiet || git commit -m "Fix: clear form and show thank-you message on submit"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Fix: use getElementById for form wrapper on success"
           git push
