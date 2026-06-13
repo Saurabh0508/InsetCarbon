@@ -1,6 +1,9 @@
 name: Patch HTML - Web3Forms
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['insetcarbon-preview_github.html']
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -12,168 +15,58 @@ jobs:
         run: |
           python3 << 'PYEOF'
           import re
-
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
-            content = f.read()
-
+              content = f.read()
           print(f'File size: {len(content)} bytes')
-
-          # Find the contact form section and wire up Web3Forms
-          # The form has id="contact-section" or similar, with inputs id="input-name", "input-email", etc.
-          # Strategy: find the <form> tag in the contact section and:
-          # 1. Add action + method to the form tag
-          # 2. Add hidden access_key input
-          # 3. Add name attributes matching Web3Forms expectations
-          # 4. Add success/error feedback
-
-          ACCESS_KEY = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
-
-          # Find form tag in contact section - look for form near contact-section
-          # Add action and method to the existing form tag
-          # Pattern: <form (any attributes but no action yet)>
-          form_pattern = re.compile(
-            r'(<form)(\s+[^>]*?)?(?<!action)(>|\s+[^>]*>)',
-            re.DOTALL
-          )
-
-          # More targeted: find the form that contains input-name/input-email
-          # Replace form tag to add action + method
-          if 'action="https://api.web3forms.com/submit"' in content:
-            print('Web3Forms action already present')
+          # 1. Add favicon SVG
+          favicon_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#2D6A4F"/><text y=".9em" font-size="60" x="50%" dominant-baseline="middle" text-anchor="middle" fill="white">IC</text></svg>'
+          import base64
+          svg_b64 = base64.b64encode(favicon_svg.encode()).decode()
+          favicon_tag = f'<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{svg_b64}">'
+          if 'rel="icon"' not in content:
+              content = content.replace('</head>', favicon_tag + '\n</head>', 1)
+              print('Favicon added')
           else:
-            # Find the form tag closest to the contact inputs
-            # Look for a form tag near id="input-name"
-            idx = content.find('id="input-name"')
-            if idx == -1:
-              idx = content.find("id='input-name'")
-            print(f'Found input-name at index: {idx}')
-
-            if idx > 0:
-              # Search backwards for the nearest <form tag
-              form_start = content.rfind('<form', 0, idx)
-              print(f'Found form tag at index: {form_start}')
-              form_end = content.find('>', form_start)
-              old_form_tag = content[form_start:form_end+1]
-              print(f'Old form tag: {old_form_tag[:200]}')
-
-              # Build new form tag with Web3Forms attributes
-              new_form_tag = old_form_tag.replace(
-                '<form',
-                '<form action="https://api.web3forms.com/submit" method="POST"'
-              )
-              # Make sure we don't duplicate if already there
-              if 'action=' not in old_form_tag:
-                content = content[:form_start] + new_form_tag + content[form_end+1:]
-                print('Added action and method to form tag')
-
-              # Add hidden access_key input right after the new form tag
-              hidden_input = f'<input type="hidden" name="access_key" value="{ACCESS_KEY}"><input type="hidden" name="subject" value="New InsetCarbon Enquiry"><input type="hidden" name="from_name" value="InsetCarbon Website"><input type="checkbox" name="botcheck" class="hidden" style="display:none;">'
-              new_form_tag_updated = content[form_start:content.find('>', form_start)+1]
-              insert_pos = content.find('>', form_start) + 1
-              content = content[:insert_pos] + hidden_input + content[insert_pos:]
-              print('Added hidden Web3Forms inputs')
-
-          # Ensure input names are correct for Web3Forms
-          # Map existing IDs to proper name attributes
-          replacements = [
-            # input-name -> name="name"
-            (r'(<input[^>]*id=["\']input-name["\'][^>]*)(name=["\'][^"\']*["\'])', r'\1name="name"'),
-            (r'(<input[^>]*)(id=["\']input-name["\'])([^>]*>)',
-              lambda m: m.group(0) if 'name=' in m.group(0) else m.group(1) + m.group(2) + ' name="name"' + m.group(3)),
-            # input-email -> name="email"
-            (r'(<input[^>]*)(id=["\']input-email["\'])([^>]*>)',
-              lambda m: m.group(0) if 'name=' in m.group(0) else m.group(1) + m.group(2) + ' name="email"' + m.group(3)),
-            # input-company -> name="company"
-            (r'(<input[^>]*)(id=["\']input-company["\'])([^>]*>)',
-              lambda m: m.group(0) if 'name=' in m.group(0) else m.group(1) + m.group(2) + ' name="company"' + m.group(3)),
-            # input-role -> name="role"
-            (r'(<input[^>]*)(id=["\']input-role["\'])([^>]*>)',
-              lambda m: m.group(0) if 'name=' in m.group(0) else m.group(1) + m.group(2) + ' name="role"' + m.group(3)),
-          ]
-
-          # Simpler direct replacement for name attributes
-          # Check current name attributes on these inputs
-          for field_id, field_name in [('input-name','name'),('input-email','email'),('input-company','company'),('input-role','role')]:
-            # Find the input with this ID
-            pattern = re.compile(r'(<input)([^>]*id=["\']' + field_id + r'["\'][^>]*)(>)', re.DOTALL)
-            def add_name(m, fn=field_name):
-              tag_body = m.group(2)
-              if 'name=' not in tag_body:
-                tag_body += f' name="{fn}"'
+              content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*>', favicon_tag, content)
+              print('Favicon replaced')
+          # 2. Add Web3Forms to contact form
+          w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
+          hidden_inputs = f'<input type="hidden" name="access_key" value="{w3f_key}"><input type="hidden" name="subject" value="New InsetCarbon Contact Form Submission"><input type="hidden" name="redirect" value="https://web3forms.com/success">'
+          # Find the form with id contact-section or a form near it
+          # Add action and method, and inject hidden inputs
+          def patch_form(m):
+              tag = m.group(0)
+              if 'web3forms' not in tag and 'access_key' not in content[m.start():m.start()+2000]:
+                  tag = re.sub(r'(<form)', r'\1 action="https://api.web3forms.com/submit" method="POST"', tag)
+              return tag
+          # Insert hidden inputs after opening form tag near contact section
+          contact_pos = content.find('id="contact-section"')
+          if contact_pos == -1:
+              contact_pos = content.find('contact')
+          print(f'Contact section found at pos: {contact_pos}')
+          # Find the next form tag after contact section
+          form_pos = content.find('<form', contact_pos)
+          if form_pos != -1:
+              form_end = content.find('>', form_pos)
+              old_form_tag = content[form_pos:form_end+1]
+              new_form_tag = old_form_tag
+              if 'web3forms.com' not in old_form_tag:
+                  if 'action=' not in old_form_tag:
+                      new_form_tag = old_form_tag[:-1] + ' action="https://api.web3forms.com/submit" method="POST">'
+                  content = content[:form_pos] + new_form_tag + hidden_inputs + content[form_end+1:]
+                  print('Form patched with Web3Forms')
               else:
-                tag_body = re.sub(r'name=["\'][^"\']*["\']', f'name="{fn}"', tag_body)
-              return m.group(1) + tag_body + m.group(3)
-            new_content = pattern.sub(add_name, content)
-            if new_content != content:
-              print(f'Updated name attribute for {field_id}')
-            content = new_content
-
-          # Add a success/error message div after the submit button if not present
-          if 'id="form-result"' not in content and 'id="contact-section"' in content:
-            # Find the submit button in the contact section
-            btn_pattern = re.compile(r'(<button[^>]*type=["\']submit["\'][^>]*>.*?</button>)', re.DOTALL)
-            submit_buttons = list(btn_pattern.finditer(content))
-
-            # Find button near contact section
-            contact_idx = content.find('id="contact-section"')
-            for m in submit_buttons:
-              if m.start() > contact_idx:
-                success_html = '<div id="form-result" class="mt-4 hidden"><p id="form-result-msg" class="text-sm font-mono tracking-wider uppercase"></p></div>'
-                content = content[:m.end()] + success_html + content[m.end():]
-                print('Added form result div')
-                break
-
-          # Add/update the form submission JS to handle Web3Forms response
-          # Remove old form handling JS if present and add clean Web3Forms handler
-          w3f_script = '''
-<script>
-(function() {
-  var form = document.querySelector('#contact-section form');
-  if (!form) return;
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    var btn = form.querySelector('button[type="submit"]');
-    var resultDiv = document.getElementById('form-result');
-    var resultMsg = document.getElementById('form-result-msg');
-    if (btn) { btn.disabled = true; btn.textContent = 'SENDING...'; }
-    var data = new FormData(form);
-    fetch('https://api.web3forms.com/submit', { method: 'POST', body: data })
-      .then(function(res) { return res.json(); })
-      .then(function(json) {
-        if (resultDiv) resultDiv.classList.remove('hidden');
-        if (json.success) {
-          if (resultMsg) { resultMsg.textContent = 'Message sent! We will be in touch soon.'; resultMsg.style.color = '#4a7c59'; }
-          form.reset();
-        } else {
-          if (resultMsg) { resultMsg.textContent = 'Something went wrong. Please try again.'; resultMsg.style.color = '#c0392b'; }
-        }
-        if (btn) { btn.disabled = false; btn.textContent = 'SEND IT \u2192'; }
-      })
-      .catch(function() {
-        if (resultDiv) resultDiv.classList.remove('hidden');
-        if (resultMsg) { resultMsg.textContent = 'Network error. Please try again.'; resultMsg.style.color = '#c0392b'; }
-        if (btn) { btn.disabled = false; btn.textContent = 'SEND IT \u2192'; }
-      });
-  });
-})();
-</script>'''
-
-          # Remove any old form-related scripts related to Web3Forms or Formspree
-          content = re.sub(r'<script>\s*\(function\(\)\{[\s\S]*?attachForm[\s\S]*?\}\)\(\);?\s*</script>', '', content)
-          content = re.sub(r'<script>\s*\(function\(\)\{[\s\S]*?web3forms[\s\S]*?\}\)\(\);?\s*</script>', '', content, flags=re.IGNORECASE)
-
-          # Inject the new script before </body>
-          content = content.replace('</body>', w3f_script + '\n</body>', 1)
-          print('Injected Web3Forms submit handler')
-
+                  print('Form already has Web3Forms')
+          else:
+              print('No form found near contact section')
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
-            f.write(content)
-          print('Done! File written successfully.')
+              f.write(content)
+          print('Done')
           PYEOF
-      - name: Commit and push
+      - name: Commit changes
         run: |
-          git config user.name "actions-user"
-          git config user.email "actions@github.com"
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
           git add insetcarbon-preview_github.html
-          git diff --staged --quiet || git commit -m "Wire up Web3Forms contact form (access key integrated)"
+          git diff --staged --quiet || git commit -m "Patch: favicon + Web3Forms contact form"
           git push
