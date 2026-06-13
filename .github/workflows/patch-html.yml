@@ -1,4 +1,4 @@
-name: Patch HTML
+name: Restore and Patch HTML
 on:
   workflow_dispatch:
 jobs:
@@ -8,20 +8,26 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Apply all patches via Python
+        with:
+          fetch-depth: 0
+      - name: Restore original HTML and update favicon
         run: |
-          python3 - << 'PYEOF'
-          import re, urllib.parse
-          with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
-            content = f.read()
+          python3 << 'PYEOF'
+          import re, urllib.parse, subprocess
 
-          # 1. Fix copyright year
-          content = content.replace('2025 InsetCarbon', '2026 InsetCarbon')
-          content = content.replace('\u00a9 2025', '\u00a9 2026')
-          content = content.replace('&copy; 2025', '&copy; 2026')
-          content = re.sub(r'(copyright[\s\S]{1,20}?)(2025)', r'\g<1>2026', content, flags=re.IGNORECASE)
+          # Step 1: Restore original file from commit 8d7ecfb
+          result = subprocess.run(
+            ['git', 'show', '8d7ecfb:insetcarbon-preview_github.html'],
+            capture_output=True, text=True
+          )
+          if result.returncode != 0:
+            print('ERROR: Could not restore original file')
+            print(result.stderr)
+            exit(1)
+          content = result.stdout
+          print(f'Restored original file: {len(content)} bytes')
 
-          # 2. FORCE-replace favicon with correct hexagonal C + carbon dots SVG
+          # Step 2: Replace favicon with new SVG
           favicon_svg = ('<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">'
             '<g fill="#000000">'
             '<path d="M 95 40 L 45 72 Q 35 78 35 90 L 35 166 Q 35 178 45 184 L 95 216'
@@ -34,90 +40,23 @@ jobs:
             '<circle cx="180" cy="164" r="16"/>'
             '</g></svg>')
           encoded = urllib.parse.quote(favicon_svg, safe='')
-          # Remove all existing favicon/icon link tags
-          content = re.sub(r'<link[^>]*rel=["\'](?:shortcut )?icon["\'][^>]*>', '', content)
-          content = re.sub(r'<link[^>]*href=["\'][^"\']*(?:favicon|icon)[^"\']*\.png["\'][^>]*>', '', content)
-          content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*/>', '', content)
-          # Inject new favicon as first item in <head>
-          content = content.replace('<head>', '<head>\n<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encoded + '">\n', 1)
+          new_favicon = '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encoded + '">'
 
-          # 3. Remove old Formspree CDN scripts
-          content = re.sub(r'<script[^>]*unpkg\.com/@formspree[^>]*>[\s\S]*?</script>\s*', '', content)
-          content = re.sub(r'<script[^>]*unpkg\.com/(@formspree|@gformspree)[^>]*>\s*', '', content)
-          content = re.sub(r'\s*window\.formspree[\s\S]*?</script>\s*', '', content)
-          content = re.sub(r'\s*\(function\(\)\){var f=document[\s\S]*?</script>\s*', '', content)
+          # Remove existing favicon link tags
+          content = re.sub(r'<link[^>]*rel=["\'](?:shortcut )?icon["\'][^>]*/?>\s*', '', content)
+          content = re.sub(r'<link[^>]*type=["\']image/svg\+xml["\'][^>]*/?>\s*', '', content)
 
-          # 4. Add name attributes to existing inputs if missing
-          content = re.sub(r'(id="input-name")', r'\1 name="name"', content)
-          content = re.sub(r'(id="input-company")', r'\1 name="company"', content)
-          content = re.sub(r'(id="input-role")', r'\1 name="role"', content)
-          content = re.sub(r'(id="input-email")', r'\1 name="email"', content)
-
-          # 5. Remove any previously injected form scripts to avoid duplicates
-          content = re.sub(r'\s*\(function\(\)\{[\s\S]*?\}\)\(\);\s*</script>', '</script>', content, flags=re.DOTALL)
-
-          # 6. Inject Web3Forms submit handler before </body>
-          W3F_ACCESS_KEY = 'YOUR_WEB3FORMS_ACCESS_KEY'
-          lines = [
-            '<script>',
-            '(function(){',
-            '  function attachForm(){',
-            '    var form = document.querySelector("#contact-section form") || document.querySelector("form");',
-            '    if (!form) return;',
-            '    var newForm = form.cloneNode(true);',
-            '    form.parentNode.replaceChild(newForm, form);',
-            '    newForm.addEventListener("submit", function(e){',
-            '      e.preventDefault();',
-            '      e.stopImmediatePropagation();',
-            '      var btn = newForm.querySelector("[type=submit]");',
-            '      var nameVal = (newForm.querySelector("#input-name") || {}).value || "";',
-            '      var company = (newForm.querySelector("#input-company") || {}).value || "";',
-            '      var role = (newForm.querySelector("#input-role") || {}).value || "";',
-            '      var email = (newForm.querySelector("#input-email") || {}).value || "";',
-            '      if (!email || !nameVal) { alert("Please fill in your name and email."); return; }',
-            '      if (btn) { btn.disabled = true; btn.textContent = "SENDING..."; }',
-            '      fetch("https://api.web3forms.com/submit", {',
-            '        method: "POST",',
-            '        headers: { "Content-Type": "application/json", "Accept": "application/json" },',
-            '        body: JSON.stringify({',
-            '          access_key: "' + W3F_ACCESS_KEY + '",',
-            '          subject: "New InsetCarbon Enquiry from " + nameVal,',
-            '          name: nameVal, company: company, role: role, email: email',
-            '        })',
-            '      })',
-            '      .then(function(r){ return r.json(); })',
-            '      .then(function(data){',
-            '        if (data.success) {',
-            '          newForm.innerHTML = "<div style=\'border-left:3px solid #8C6A56;padding-left:1rem\'><p style=\'font-weight:700;color:#1B3022\'>Message sent.</p><p style=\'color:#1B3022;opacity:0.7\'>Thank you, " + nameVal + ". We will reach out to schedule a scoping session for " + (company || "you") + " shortly.</p></div>";',
-            '        } else {',
-            '          if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
-            '          alert("Something went wrong. Please try again.");',
-            '        }',
-            '      })',
-            '      .catch(function(err){',
-            '        if (btn) { btn.disabled = false; btn.textContent = "SEND IT \u2192"; }',
-            '        alert("Error: " + err.message + ". Please try again.");',
-            '      });',
-            '    }, true);',
-            '  }',
-            '  if (document.readyState === "loading") {',
-            '    document.addEventListener("DOMContentLoaded", attachForm);',
-            '  } else { attachForm(); }',
-            '})();',
-            '</script>',
-          ]
-          fs_script = '\n'.join(lines)
-          content = content.replace('</body>', fs_script + '\n</body>', 1)
+          # Inject new favicon after <head>
+          content = content.replace('<head>', '<head>\n' + new_favicon, 1)
 
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
             f.write(content)
-          print('Done. Correct favicon + Web3Forms handler injected.')
+          print('Favicon updated successfully')
           PYEOF
-
-      - name: Commit changes
+      - name: Commit and push
         run: |
-          git config user.name "GitHub Actions"
+          git config user.name "actions-user"
           git config user.email "actions@github.com"
           git add insetcarbon-preview_github.html
-          git diff --cached --quiet || git commit -m "Fix: correct favicon SVG + switch to Web3Forms"
+          git commit -m "Restore original HTML + update favicon to new hexagonal C design"
           git push
