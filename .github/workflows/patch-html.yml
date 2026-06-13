@@ -61,21 +61,30 @@ jobs:
           </script>
           HTMLEOF
           python3 - << 'PYEOF'
-          import re
-          with open("index.html","r") as f:
-              html=f.read()
-          with open("/tmp/w3f_snippet.html","r") as f:
-              snippet=f.read().strip()
-          html=re.sub(r'<script id="web3forms-interceptor">[\s\S]*?</script>','',html)
-          html=html.replace("</body>",snippet+"\n</body>")
-          with open("index.html","w") as f:
+          import re, glob, os
+          candidates = glob.glob("*.html") + glob.glob("**/*.html", recursive=True)
+          html_file = None
+          for f in candidates:
+              if "index" in f.lower() or "insetcarbon" in f.lower() or "preview" in f.lower():
+                  html_file = f
+                  break
+          if not html_file and candidates:
+              html_file = candidates[0]
+          print("Patching:", html_file)
+          with open(html_file, "r") as f:
+              html = f.read()
+          with open("/tmp/w3f_snippet.html", "r") as f:
+              snippet = f.read().strip()
+          html = re.sub(r'<script id="web3forms-interceptor">[\s\S]*?</script>', '', html)
+          html = html.replace("</body>", snippet + "\n</body>")
+          with open(html_file, "w") as f:
               f.write(html)
           print("Done")
           PYEOF
-      - name: Commit patched index.html
+      - name: Commit patched HTML
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add index.html
-          git diff --cached --quiet || git commit -m "Fix: use getElementById for form wrapper on success"
+          git add -A
+          git diff --cached --quiet || git commit -m "Fix: getElementById for form wrapper on success"
           git push
