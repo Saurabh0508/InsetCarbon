@@ -1,9 +1,6 @@
 name: Patch HTML - Web3Forms
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['insetcarbon-preview_github.html']
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -14,59 +11,57 @@ jobs:
       - name: Wire up Web3Forms to contact form
         run: |
           python3 << 'PYEOF'
-          import re
+          import re, base64
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
               content = f.read()
           print(f'File size: {len(content)} bytes')
-          # 1. Add favicon SVG
-          favicon_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#2D6A4F"/><text y=".9em" font-size="60" x="50%" dominant-baseline="middle" text-anchor="middle" fill="white">IC</text></svg>'
-          import base64
-          svg_b64 = base64.b64encode(favicon_svg.encode()).decode()
-          favicon_tag = f'<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{svg_b64}">'
-          if 'rel="icon"' not in content:
+          # 1. Favicon - already done, skip if present
+          if 'rel="icon"' in content and 'data:image/svg+xml' in content:
+              print('Favicon already present, skipping')
+          else:
+              favicon_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#2D6A4F"/><text y=".9em" font-size="60" x="50%" dominant-baseline="middle" text-anchor="middle" fill="white">IC</text></svg>'
+              svg_b64 = base64.b64encode(favicon_svg.encode()).decode()
+              favicon_tag = f'<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{svg_b64}">'
               content = content.replace('</head>', favicon_tag + '\n</head>', 1)
               print('Favicon added')
-          else:
-              content = re.sub(r'<link[^>]*rel=["\']icon["\'][^>]*>', favicon_tag, content)
-              print('Favicon replaced')
-          # 2. Add Web3Forms to contact form
-          w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
-          hidden_inputs = f'<input type="hidden" name="access_key" value="{w3f_key}"><input type="hidden" name="subject" value="New InsetCarbon Contact Form Submission"><input type="hidden" name="redirect" value="https://web3forms.com/success">'
-          # Find the form with id contact-section or a form near it
-          # Add action and method, and inject hidden inputs
-          def patch_form(m):
-              tag = m.group(0)
-              if 'web3forms' not in tag and 'access_key' not in content[m.start():m.start()+2000]:
-                  tag = re.sub(r'(<form)', r'\1 action="https://api.web3forms.com/submit" method="POST"', tag)
-              return tag
-          # Insert hidden inputs after opening form tag near contact section
-          contact_pos = content.find('id="contact-section"')
-          if contact_pos == -1:
-              contact_pos = content.find('contact')
-          print(f'Contact section found at pos: {contact_pos}')
-          # Find the next form tag after contact section
-          form_pos = content.find('<form', contact_pos)
-          if form_pos != -1:
-              form_end = content.find('>', form_pos)
-              old_form_tag = content[form_pos:form_end+1]
-              new_form_tag = old_form_tag
-              if 'web3forms.com' not in old_form_tag:
-                  if 'action=' not in old_form_tag:
-                      new_form_tag = old_form_tag[:-1] + ' action="https://api.web3forms.com/submit" method="POST">'
-                  content = content[:form_pos] + new_form_tag + hidden_inputs + content[form_end+1:]
-                  print('Form patched with Web3Forms')
+          # 2. Find form using input aria-label
+          input_pos = content.find('aria-label="your name"')
+          if input_pos == -1:
+              input_pos = content.find('aria-label=\'your name\'')
+          print(f'Name input found at: {input_pos}')
+          if input_pos != -1:
+              # Find the last <form before this input
+              form_pos = content.rfind('<form', 0, input_pos)
+              print(f'Form tag found at: {form_pos}')
+              if form_pos != -1:
+                  form_end = content.find('>', form_pos)
+                  old_form_tag = content[form_pos:form_end+1]
+                  print(f'Form tag: {old_form_tag[:100]}')
+                  if 'web3forms.com' not in content[form_pos:form_pos+500]:
+                      # Build new form tag with action
+                      if 'action=' not in old_form_tag:
+                          new_form_tag = old_form_tag[:-1] + ' action="https://api.web3forms.com/submit" method="POST">'
+                      else:
+                          new_form_tag = old_form_tag
+                      w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
+                      hidden = '<input type="hidden" name="access_key" value="' + w3f_key + '">'
+                      hidden += '<input type="hidden" name="subject" value="New InsetCarbon Contact">'
+                      content = content[:form_pos] + new_form_tag + hidden + content[form_end+1:]
+                      print('Web3Forms injected successfully')
+                  else:
+                      print('Web3Forms already present')
               else:
-                  print('Form already has Web3Forms')
+                  print('ERROR: No form tag found before input')
           else:
-              print('No form found near contact section')
+              print('ERROR: Name input not found in HTML')
           with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
               f.write(content)
-          print('Done')
+          print('File written successfully')
           PYEOF
       - name: Commit changes
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           git add insetcarbon-preview_github.html
-          git diff --staged --quiet || git commit -m "Patch: favicon + Web3Forms contact form"
+          git diff --staged --quiet || git commit -m "Patch: Web3Forms contact form integration"
           git push
