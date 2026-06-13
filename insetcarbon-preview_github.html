@@ -120,47 +120,51 @@ Error generating stack: `+a.message+`
 
 <script id="web3forms-interceptor">
 (function(){
-  var KEY="72c76e43-c41e-44bc-9a7f-25e3fd7256d2";
-  function init(){
-    var t=setInterval(function(){
-      var btn=null;
-      document.querySelectorAll("button").forEach(function(b){
-        if(b.textContent.indexOf("SEND")>-1)btn=b;
-      });
-      if(btn&&!btn._w3f){
-        btn._w3f=true;clearInterval(t);
-        btn.addEventListener("click",function(e){
-          e.preventDefault();e.stopPropagation();
-          var n=document.getElementById("input-name")||document.querySelector('[placeholder="your name"]');
-          var c=document.getElementById("input-company")||document.querySelector('[placeholder="company"]');
-          var r=document.getElementById("input-role")||document.querySelector('[placeholder="your role"]');
-          var em=document.getElementById("input-email")||document.querySelector('[placeholder="email address"]')||document.querySelector('[type="email"]');
-          var nv=n?n.value:"",cv=c?c.value:"",rv=r?r.value:"",ev=em?em.value:"";
-          if(!nv||!ev){alert("Please fill in your name and email.");return;}
-          btn.disabled=true;btn.textContent="SENDING...";
-          fetch("https://api.web3forms.com/submit",{
-            method:"POST",
-            headers:{"Content-Type":"application/json","Accept":"application/json"},
-            body:JSON.stringify({access_key:KEY,subject:"New InsetCarbon Contact",name:nv,email:ev,message:"Name:"+nv+" Company:"+cv+" Role:"+rv+" Email:"+ev})
-          }).then(function(x){return x.json();}).then(function(d){
-            if(d.success){
-              var wrapper=btn.closest(".conversational-form-wrapper")||btn.closest("form")||btn.parentElement;
-              if(wrapper){
-                wrapper.innerHTML='<div style="padding:2rem 0;text-align:center;"><p style="font-size:1.2rem;font-weight:700;color:inherit;margin-bottom:0.5rem;">Thank you for your submission!</p><p style="opacity:0.7;">Our team will get back to you shortly.</p></div>';
-              } else {
-                btn.textContent="SENT! Thank you.";
-              }
-            } else {
-              btn.textContent="ERROR - Try again";
-              btn.disabled=false;
-            }
-          }).catch(function(){btn.textContent="ERROR - Try again";btn.disabled=false;});
-        },true);
-      }
-    },500);
-    setTimeout(function(){clearInterval(t);},15000);
-  }
-  if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
+var KEY="72c76e43-c41e-44bc-9a7f-25e3fd7256d2";
+function init(){
+var t=setInterval(function(){
+var btn=null;
+document.querySelectorAll("button").forEach(function(b){
+if(b.textContent.indexOf("SEND")>-1)btn=b;
+});
+if(btn&&!btn._w3f){
+btn._w3f=true;clearInterval(t);
+btn.addEventListener("click",function(e){
+e.preventDefault();e.stopPropagation();
+var n=document.getElementById("input-name")||document.querySelector('[placeholder="your name"]');
+var c=document.getElementById("input-company")||document.querySelector('[placeholder="company"]');
+var r=document.getElementById("input-role")||document.querySelector('[placeholder="your role"]');
+var em=document.getElementById("input-email")||document.querySelector('[placeholder="email address"]')||document.querySelector('[type="email"]');
+var nv=n?n.value:"",cv=c?c.value:"",rv=r?r.value:"",ev=em?em.value:"";
+if(!nv||!ev){alert("Please fill in your name and email.");return;}
+btn.disabled=true;btn.textContent="SENDING...";
+fetch("https://api.web3forms.com/submit",{
+method:"POST",
+headers:{"Content-Type":"application/json","Accept":"application/json"},
+body:JSON.stringify({access_key:KEY,name:nv,company:cv,role:rv,email:ev,subject:"New InsetCarbon Contact: "+nv,from_name:"InsetCarbon Contact Form"})
+}).then(function(res){return res.json();})
+.then(function(d){
+if(d.success){
+var wrapper=document.getElementById("conversational-form-wrapper");
+if(wrapper){
+wrapper.innerHTML='<div style="padding:2rem 0;text-align:center;"><p style="font-size:1.2rem;font-weight:700;color:inherit;margin-bottom:0.5rem;">Thank you for your submission!</p><p style="opacity:0.7;">Our team will get back to you shortly.</p></div>';
+} else {
+btn.textContent="SENT! Thank you.";
+}
+} else {
+btn.textContent="ERROR - Try again";
+btn.disabled=false;
+}
+}).catch(function(){
+btn.textContent="ERROR - Try again";
+btn.disabled=false;
+});
+});
+}
+},300);
+}
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
 })();
-</script></body>
+</script>
+</body>
 </html>
