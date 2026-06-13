@@ -8,60 +8,61 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Wire up Web3Forms to contact form
+      - name: Debug and patch HTML
         run: |
           python3 << 'PYEOF'
           import re, base64
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
               content = f.read()
           print(f'File size: {len(content)} bytes')
-          # 1. Favicon - already done, skip if present
+          # Debug: find all form tags
+          form_positions = [m.start() for m in re.finditer(r'<form', content)]
+          print(f'Found {len(form_positions)} form tags at positions: {form_positions}')
+          # Debug: search for aria-label variants
+          for pat in ['aria-label="your name"', "aria-label='your name'", 'input-name', 'aria-label']:
+              pos = content.find(pat)
+              print(f'Pattern [{pat}] found at: {pos}')
+          # Favicon check
           if 'rel="icon"' in content and 'data:image/svg+xml' in content:
-              print('Favicon already present, skipping')
+              print('Favicon already present')
           else:
-              favicon_svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="#2D6A4F"/><text y=".9em" font-size="60" x="50%" dominant-baseline="middle" text-anchor="middle" fill="white">IC</text></svg>'
-              svg_b64 = base64.b64encode(favicon_svg.encode()).decode()
-              favicon_tag = f'<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,{svg_b64}">'
-              content = content.replace('</head>', favicon_tag + '\n</head>', 1)
-              print('Favicon added')
-          # 2. Find form using input aria-label
-          input_pos = content.find('aria-label="your name"')
-          if input_pos == -1:
-              input_pos = content.find('aria-label=\'your name\'')
-          print(f'Name input found at: {input_pos}')
-          if input_pos != -1:
-              # Find the last <form before this input
-              form_pos = content.rfind('<form', 0, input_pos)
-              print(f'Form tag found at: {form_pos}')
-              if form_pos != -1:
-                  form_end = content.find('>', form_pos)
-                  old_form_tag = content[form_pos:form_end+1]
-                  print(f'Form tag: {old_form_tag[:100]}')
-                  if 'web3forms.com' not in content[form_pos:form_pos+500]:
-                      # Build new form tag with action
-                      if 'action=' not in old_form_tag:
-                          new_form_tag = old_form_tag[:-1] + ' action="https://api.web3forms.com/submit" method="POST">'
-                      else:
-                          new_form_tag = old_form_tag
-                      w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
-                      hidden = '<input type="hidden" name="access_key" value="' + w3f_key + '">'
-                      hidden += '<input type="hidden" name="subject" value="New InsetCarbon Contact">'
-                      content = content[:form_pos] + new_form_tag + hidden + content[form_end+1:]
-                      print('Web3Forms injected successfully')
-                  else:
-                      print('Web3Forms already present')
+              print('Favicon missing, adding...')
+          PYEOF
+      - name: Patch Web3Forms
+        run: |
+          python3 << 'PYEOF'
+          import re, base64
+          with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
+              content = f.read()
+          # Patch: find the LAST form tag and inject Web3Forms
+          form_positions = [m.start() for m in re.finditer(r'<form', content)]
+          if not form_positions:
+              print('No forms found!')
+          else:
+              form_pos = form_positions[-1]
+              form_end = content.find('>', form_pos)
+              old_form_tag = content[form_pos:form_end+1]
+              print(f'Last form tag at {form_pos}: {old_form_tag[:120]}')
+              if 'web3forms.com' in content[form_pos:form_pos+1000]:
+                  print('Web3Forms already integrated')
               else:
-                  print('ERROR: No form tag found before input')
-          else:
-              print('ERROR: Name input not found in HTML')
-          with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
-              f.write(content)
-          print('File written successfully')
+                  if 'action=' not in old_form_tag:
+                      new_tag = old_form_tag[:-1] + ' action="https://api.web3forms.com/submit" method="POST">'
+                  else:
+                      new_tag = old_form_tag
+                  w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
+                  hidden = '<input type="hidden" name="access_key" value="' + w3f_key + '">'
+                  hidden += '<input type="hidden" name="subject" value="New InsetCarbon Contact">'
+                  content = content[:form_pos] + new_tag + hidden + content[form_end+1:]
+                  print('Web3Forms injected into last form!')
+              with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print('Done')
           PYEOF
       - name: Commit changes
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           git add insetcarbon-preview_github.html
-          git diff --staged --quiet || git commit -m "Patch: Web3Forms contact form integration"
+          git diff --staged --quiet || git commit -m "Patch: Web3Forms injected into contact form"
           git push
