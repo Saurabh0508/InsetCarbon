@@ -8,98 +8,69 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Inject Web3Forms JS interceptor
+      - name: Write JS interceptor file
+        run: |
+          cat > /tmp/w3f_snippet.html << 'HTMLEOF'
+          <script id="web3forms-interceptor">
+          (function(){
+            var KEY="72c76e43-c41e-44bc-9a7f-25e3fd7256d2";
+            function init(){
+              var t=setInterval(function(){
+                var btn=null;
+                document.querySelectorAll("button").forEach(function(b){
+                  if(b.textContent.indexOf("SEND")>-1)btn=b;
+                });
+                if(btn&&!btn._w3f){
+                  btn._w3f=true;clearInterval(t);
+                  btn.addEventListener("click",function(e){
+                    e.preventDefault();e.stopPropagation();
+                    var n=document.getElementById("input-name")||document.querySelector('[placeholder="your name"]');
+                    var c=document.getElementById("input-company")||document.querySelector('[placeholder="company"]');
+                    var r=document.getElementById("input-role")||document.querySelector('[placeholder="your role"]');
+                    var em=document.getElementById("input-email")||document.querySelector('[placeholder="email address"]')||document.querySelector('[type="email"]');
+                    var nv=n?n.value:"",cv=c?c.value:"",rv=r?r.value:"",ev=em?em.value:"";
+                    if(!nv||!ev){alert("Please fill in name and email.");return;}
+                    btn.disabled=true;btn.textContent="SENDING...";
+                    fetch("https://api.web3forms.com/submit",{
+                      method:"POST",
+                      headers:{"Content-Type":"application/json","Accept":"application/json"},
+                      body:JSON.stringify({access_key:KEY,subject:"New InsetCarbon Contact",name:nv,email:ev,message:"Name:"+nv+" Company:"+cv+" Role:"+rv+" Email:"+ev})
+                    }).then(function(x){return x.json();}).then(function(d){
+                      if(d.success){btn.textContent="SENT! Thank you.";if(n)n.value="";if(c)c.value="";if(r)r.value="";if(em)em.value="";}
+                      else{btn.textContent="ERROR - Try again";btn.disabled=false;}
+                    }).catch(function(){btn.textContent="ERROR - Try again";btn.disabled=false;});
+                  },true);
+                }
+              },500);
+              setTimeout(function(){clearInterval(t);},15000);
+            }
+            if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
+          })();
+          </script>
+          HTMLEOF
+          echo "JS snippet written"
+          cat /tmp/w3f_snippet.html
+      - name: Inject JS into HTML
         run: |
           python3 << 'PYEOF'
           with open('insetcarbon-preview_github.html', 'r', encoding='utf-8') as f:
-              content = f.read()
-          print(f'File size: {len(content)} bytes')
-          if 'web3forms-interceptor' in content:
-              print('Web3Forms interceptor already present')
+              html = f.read()
+          print('File size:', len(html))
+          if 'web3forms-interceptor' in html:
+              print('Already injected')
           else:
-              w3f_key = '72c76e43-c41e-44bc-9a7f-25e3fd7256d2'
-              js_snippet = '''
-          <script id="web3forms-interceptor">
-          (function() {
-            function waitForSendButton() {
-              var checkInterval = setInterval(function() {
-                var sendBtn = document.querySelector('button[type="submit"]');
-                if (!sendBtn) {
-                  var buttons = document.querySelectorAll('button');
-                  for (var i = 0; i < buttons.length; i++) {
-                    if (buttons[i].textContent.indexOf('SEND') !== -1) {
-                      sendBtn = buttons[i];
-                      break;
-                    }
-                  }
-                }
-                if (sendBtn && !sendBtn._w3f_patched) {
-                  sendBtn._w3f_patched = true;
-                  clearInterval(checkInterval);
-                  sendBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var nameEl = document.getElementById('input-name') || document.querySelector('[placeholder="your name"]');
-                    var companyEl = document.getElementById('input-company') || document.querySelector('[placeholder="company"]');
-                    var roleEl = document.getElementById('input-role') || document.querySelector('[placeholder="your role"]');
-                    var emailEl = document.getElementById('input-email') || document.querySelector('[placeholder="email address"]') || document.querySelector('[type="email"]');
-                    var name = nameEl ? nameEl.value : '';
-                    var company = companyEl ? companyEl.value : '';
-                    var role = roleEl ? roleEl.value : '';
-                    var email = emailEl ? emailEl.value : '';
-                    if (!name || !email) {
-                      alert('Please fill in at least your name and email.');
-                      return;
-                    }
-                    var data = {
-                      access_key: "''' + w3f_key + '''",
-                      subject: "New InsetCarbon Contact Form Submission",
-                      name: name,
-                      email: email,
-                      message: "Name: " + name + "\\nCompany: " + company + "\\nRole: " + role + "\\nEmail: " + email
-                    };
-                    sendBtn.disabled = true;
-                    sendBtn.textContent = 'SENDING...';
-                    fetch('https://api.web3forms.com/submit', {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-                      body: JSON.stringify(data)
-                    }).then(function(r) { return r.json(); }).then(function(res) {
-                      if (res.success) {
-                        sendBtn.textContent = 'SENT! Thank you.';
-                        if (nameEl) nameEl.value = '';
-                        if (companyEl) companyEl.value = '';
-                        if (roleEl) roleEl.value = '';
-                        if (emailEl) emailEl.value = '';
-                      } else {
-                        sendBtn.textContent = 'ERROR - Try again';
-                        sendBtn.disabled = false;
-                      }
-                    }).catch(function() {
-                      sendBtn.textContent = 'ERROR - Try again';
-                      sendBtn.disabled = false;
-                    });
-                  }, true);
-                  console.log('Web3Forms interceptor attached to SEND button');
-                }
-              }, 500);
-              setTimeout(function() { clearInterval(checkInterval); }, 10000);
-            }
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', waitForSendButton);
-            } else {
-              waitForSendButton();
-            }
-          })();
-          </script>'''
-              if '</body>' in content:
-                  content = content.replace('</body>', js_snippet + '\n</body>', 1)
-                  print('Injected Web3Forms JS interceptor before </body>')
+              with open('/tmp/w3f_snippet.html', 'r') as f:
+                  snippet = f.read().strip()
+              print('Snippet length:', len(snippet))
+              print('Snippet preview:', snippet[:80])
+              if '</body>' in html:
+                  html = html.replace('</body>', snippet + '</body>', 1)
+                  print('Injected before </body>')
               else:
-                  content = content + js_snippet
-                  print('Appended Web3Forms JS interceptor to end of file')
+                  html = html + snippet
+                  print('Appended to end')
               with open('insetcarbon-preview_github.html', 'w', encoding='utf-8') as f:
-                  f.write(content)
+                  f.write(html)
               print('Done')
           PYEOF
       - name: Commit changes
@@ -107,5 +78,5 @@ jobs:
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           git add insetcarbon-preview_github.html
-          git diff --staged --quiet || git commit -m "Feat: Web3Forms JS interceptor for contact form"
+          git diff --staged --quiet || git commit -m "Feat: Web3Forms contact form integration"
           git push
