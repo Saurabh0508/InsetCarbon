@@ -12,16 +12,6 @@
     { "source": "/Nestle-ERWInsetIndia", "destination": "/Nestle-ERWInsetIndia.html" },
     { "source": "/PepsiCo-trialsIndia", "destination": "/PepsiCo-trialsIndia.html" },
     { "source": "/PernodRicard-AgERWIndia", "destination": "/PernodRicard-AgERWIndia.html" },
-    { "source": "/Starbucks-insetindia", "destination": "/Starbucks-insetindia.html" },
-    { "source": "/Unilever-IndiaERW", "destination": "/Unilever-IndiaERW.html" },
-    { "source": "/abinbev-m3r9tz", "destination": "/abinbev-m3r9tz.html" },
-    { "source": "/diageo-b2f1hs", "destination": "/diageo-b2f1hs.html" },
-    { "source": "/heineken-n5w2xk", "destination": "/heineken-n5w2xk.html" },
-    { "source": "/mars-j5q8rv", "destination": "/mars-j5q8rv.html" },
-    { "source": "/mccainfoods-b3p7qr", "destination": "/mccainfoods-b3p7qr.html" },
-    { "source": "/mondelez-k7o2wx", "destination": "/mondelez-k7o2wx.html" },
-    { "source": "/pernodricard-v8t4mz", "destination": "/pernodricard-v8t4mz.html" },
-    { "source": "/unilever-x4c6yd", "destination": "/unilever-x4c6yd.html" },
-    { "source": "/", "destination": "/insetcarbon-preview_github.html" }
+    { "source": "/Starbucks-insetindia", "destination": "/Starbucks-insetindia.html" }
   ]
 }
