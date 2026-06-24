@@ -1,0 +1,56 @@
+name: Upload Company Pitch Pages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download company HTML files
+        run: |
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/f0e3e3a5-850d-411e-8682-e88653215caa/McCainFoods_OriginalTheme.html" -o "mccainfoods-b3p7qr.html" || echo "Failed McCainFoods"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/203b0c70-22ba-4c6b-a90f-abb3e7238d26/Heineken_OriginalTheme.html" -o "heineken-n5w2xk.html" || echo "Failed Heineken"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/139a98d3-5eaa-4736-8707-861002574324/ABInBev_OriginalTheme.html" -o "abinbev-m3r9tz.html" || echo "Failed ABInBev"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/57934f50-d8e5-472c-a1c2-d1b449965890/PernodRicard_OriginalTheme.html" -o "pernodricard-v8t4mz.html" || echo "Failed PernodRicard"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/a9d90855-3145-4cbc-b489-771f1d1d5fd4/Diageo_OriginalTheme.html" -o "diageo-b2f1hs.html" || echo "Failed Diageo"
+
+      - name: Check downloaded files
+        run: |
+          for f in mccainfoods-b3p7qr.html heineken-n5w2xk.html abinbev-m3r9tz.html pernodricard-v8t4mz.html diageo-b2f1hs.html; do
+            if [ -f "$f" ]; then
+              SIZE=$(wc -c < "$f")
+              HEAD=$(head -c 100 "$f")
+              echo "$f: $SIZE bytes, starts with: $HEAD"
+            else
+              echo "$f: NOT FOUND"
+            fi
+          done
+
+      - name: Update vercel.json
+        run: |
+          cat > vercel.json << 'EOF'
+          {
+            "rewrites": [
+              { "source": "/mccainfoods-b3p7qr", "destination": "/mccainfoods-b3p7qr.html" },
+              { "source": "/heineken-n5w2xk", "destination": "/heineken-n5w2xk.html" },
+              { "source": "/abinbev-m3r9tz", "destination": "/abinbev-m3r9tz.html" },
+              { "source": "/pernodricard-v8t4mz", "destination": "/pernodricard-v8t4mz.html" },
+              { "source": "/diageo-b2f1hs", "destination": "/diageo-b2f1hs.html" },
+              { "source": "/", "destination": "/insetcarbon-preview_github.html" }
+            ]
+          }
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mccainfoods-b3p7qr.html heineken-n5w2xk.html abinbev-m3r9tz.html pernodricard-v8t4mz.html diageo-b2f1hs.html vercel.json
+          git diff --cached --quiet || git commit -m "Upload company-specific pitch HTML files"
+          git push
