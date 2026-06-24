@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/", "destination": "/insetcarbon-preview_github.html" },
     { "source": "/ABInBev-insettrial", "destination": "/ABInBev-insettrial.html" },
     { "source": "/Carlsberg-carboncapture", "destination": "/Carlsberg-carboncapture.html" },
     { "source": "/Danone-farmtrial", "destination": "/Danone-farmtrial.html" },
