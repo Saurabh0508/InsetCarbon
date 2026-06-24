@@ -1,10 +1,17 @@
 {
   "rewrites": [
-    { "source": "/mondelez-k7p2wx", "destination": "/mondelez-k7p2wx.html" },
-    { "source": "/abinbev-m3r9tz", "destination": "/abinbev-m3r9tz.html" },
-    { "source": "/mars-j5q8nv", "destination": "/mars-j5q8nv.html" },
-    { "source": "/unilever-x4c6yd", "destination": "/unilever-x4c6yd.html" },
-    { "source": "/diageo-b2f1hs", "destination": "/diageo-b2f1hs.html" },
+    { "source": "/mondelez-k7p2wx", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/abinbev-m3r9tz", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/mars-j5q8nv", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/unilever-x4c6yd", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/diageo-b2f1hs", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/nestle-f7a9ld", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/pepsico-q8r1zd", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/danone-w2k5xp", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/kraft-xy3n89", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/lindt-r4m2pj", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/ferrero-t6n1qw", "destination": "/insetcarbon-preview_github.html" },
+    { "source": "/generalmills-v9z3ks", "destination": "/insetcarbon-preview_github.html" },
     { "source": "/", "destination": "/insetcarbon-preview_github.html" }
   ]
 }
