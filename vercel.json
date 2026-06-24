@@ -1,5 +1,10 @@
 {
   "rewrites": [
+    { "source": "/mondelez-k7p2wx", "destination": "/mondelez-k7p2wx.html" },
+    { "source": "/abinbev-m3r9tz", "destination": "/abinbev-m3r9tz.html" },
+    { "source": "/mars-j5q8nv", "destination": "/mars-j5q8nv.html" },
+    { "source": "/unilever-x4c6yd", "destination": "/unilever-x4c6yd.html" },
+    { "source": "/diageo-b2f1hs", "destination": "/diageo-b2f1hs.html" },
     { "source": "/", "destination": "/insetcarbon-preview_github.html" }
   ]
 }
