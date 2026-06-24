@@ -1,0 +1,44 @@
+name: Add Pitch Pages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  add-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download pitch HTML files
+        run: |
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/af59b866-e324-468a-bd33-b17a2c0e8449/Mondelez_OriginalTheme.html" -o "mondelez-k7p2wx.html"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/e5573e66-24dd-4910-8618-0e67bfc15147/ABInBev_OriginalTheme.html" -o "abinbev-m3r9tz.html"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/c62dc5f5-4067-44ed-a1bb-662cf78f14b8/Mars_OriginalTheme.html" -o "mars-j5q8nv.html"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/049ede36-60ca-4b6d-b3ff-d985865f2b92/Unilever_OriginalTheme.html" -o "unilever-x4c6yd.html"
+          curl -L "https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/25357149/03351364-76ff-4106-8f16-fe42ea5a9223/Diageo_OriginalTheme.html" -o "diageo-b2f1hs.html"
+
+      - name: Update vercel.json with new routes
+        run: |
+          cat > vercel.json << 'EOF'
+          {
+            "rewrites": [
+              { "source": "/mondelez-k7p2wx", "destination": "/mondelez-k7p2wx.html" },
+              { "source": "/abinbev-m3r9tz", "destination": "/abinbev-m3r9tz.html" },
+              { "source": "/mars-j5q8nv", "destination": "/mars-j5q8nv.html" },
+              { "source": "/unilever-x4c6yd", "destination": "/unilever-x4c6yd.html" },
+              { "source": "/diageo-b2f1hs", "destination": "/diageo-b2f1hs.html" },
+              { "source": "/", "destination": "/insetcarbon-preview_github.html" }
+            ]
+          }
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mondelez-k7p2wx.html abinbev-m3r9tz.html mars-j5q8nv.html unilever-x4c6yd.html diageo-b2f1hs.html vercel.json
+          git commit -m "Add company pitch pages with secret slugs"
+          git push
