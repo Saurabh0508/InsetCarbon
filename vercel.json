@@ -5,13 +5,14 @@
     { "source": "/Danone-farmtrial", "destination": "/Danone-farmtrial.html" },
     { "source": "/Diageo-agtrial", "destination": "/Diageo-agtrial.html" },
     { "source": "/Heineken-potentialinset", "destination": "/Heineken-potentialinset.html" },
-    { "source": "/IKEA-insetInIndia", "destination": "/IKEA-insetInIndia.html" },
-    { "source": "/Mars-trialInIndia", "destination": "/Mars-trialInIndia.html" },
+    { "source": "/IKEA-insetinIndia", "destination": "/IKEA-insetinIndia.html" },
+    { "source": "/Mars-trialInIndia", "destination": "/Mars-trialinIndia.html" },
     { "source": "/McCainFoods-AgSupplyInset", "destination": "/McCainFoods-AgSupplyInset.html" },
     { "source": "/Mondelez-AgInset", "destination": "/Mondelez-AgInset.html" },
     { "source": "/Nestle-ERWInsetIndia", "destination": "/Nestle-ERWInsetIndia.html" },
     { "source": "/PepsiCo-trialsIndia", "destination": "/PepsiCo-trialsIndia.html" },
     { "source": "/PernodRicard-AgERWIndia", "destination": "/PernodRicard-AgERWIndia.html" },
-    { "source": "/Starbucks-insetindia", "destination": "/Starbucks-insetindia.html" }
+    { "source": "/Starbucks-InsetIndia", "destination": "/Starbucks-InsetIndia.html" },
+    { "source": "/Unilever-IndiaERW", "destination": "/Unilever-IndiaERW.html" }
   ]
 }
